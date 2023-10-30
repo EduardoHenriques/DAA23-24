@@ -90,7 +90,21 @@ def modelo1_regressao(dataset):
     print(scores)
     print("Result: %0.2f accuracy with std_dev of %0.2f" % (scores.mean(),scores.std()))
     
-
+def modelo_2_trees(dataset):
+    # converter tipos de dados para string
+    # dataset['number_of_seasons'] = dataset['number_of_seasons'].astype(str)
+    # dataset['number_of_episodes'] = dataset['number_of_episodes'].astype(str)
+    # dataset['in_production'] = dataset['in_production'].astype(str)
+    # dataset['status'] = dataset['status'].astype(str)
+    dataset = dataset.drop(columns=['name','original_language','original_name','created_by','last_air_date','first_air_date'])
+    dataset.info()
+    X = dataset.drop(columns=['number_of_seasons'])
+    Y = dataset['number_of_seasons']
+    clf = DecisionTreeClassifier(random_state=2023)
+    scores = cross_val_score(clf,X,Y,cv=1000)
+    print(scores)
+    print("Result: %0.2f accuracy with std_dev of %0.2f" % (scores.mean(),scores.std())) 
+    
     
 
 
@@ -101,7 +115,7 @@ if __name__ == "__main__":
         data = pd.read_csv(DATAFILE_PATH)
         filter(data)
         # analysis(data)
-        modelo1_regressao(data)
+        modelo_2_trees(data)
     else:
         print(f"Error: File '{DATAFILE_PATH}' does not exist.")
     
