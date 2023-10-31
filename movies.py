@@ -1,3 +1,4 @@
+# conda install openpyxl
 import sklearn as skl
 import os
 import numpy as np
@@ -17,8 +18,8 @@ from sklearn.model_selection import train_test_split, cross_val_score
 
 
 from sklearn.metrics import mean_squared_error, r2_score
-from sklearn.tree import DecisionTreeClassifier, export_graphviz #Decision tree
-
+from sklearn.tree import DecisionTreeClassifier, export_graphviz #Decision tree 
+from sklearn.ensemble import RandomForestClassifier
 
 # Caminho do dataset
 DATAFILE_PATH = "dataset/movies.csv"
@@ -54,16 +55,14 @@ def filter(dataset):
     # binary encoding da colunas
     # encoder = ce.BinaryEncoder(cols =['spoken_languages', 'genres','origin_country','languages','networks'])
     # dataset=encoder.fit_transform(dataset)
-    print(dataset.info())
-    print(dataset.head())
     #####
-    sns.catplot(x="number_of_seasons", y="status", data=dataset, kind="box", aspect=1.5) 
-    plt.show()
+    #sns.catplot(x="number_of_seasons", y="status", data=dataset, kind="box", aspect=1.5) 
+    #plt.show()
     #####
 
-    print(dataset['number_of_seasons'].describe())
-    plt.hist(dataset['number_of_seasons'], bins=14, edgecolor='k')
-    plt.show()
+    #print(dataset['number_of_seasons'].describe())
+    #plt.hist(dataset['number_of_seasons'], bins=14, edgecolor='k')
+    #plt.show()
     
 # correlação, heat map, historgramas, estatísticas, etc... """
 def analysis(dataset):
@@ -74,14 +73,8 @@ def analysis(dataset):
     #
     #encoder = ce.BinaryEnconder(cols =[''])
 
-
-def modelo1_regressao(dataset):
-    #pd.Series(dataset).hist()
-    #plt.show()
-
+def modelo1_LinearReg(dataset):
     dataset = dataset.select_dtypes(include=['number'])
-    #sns.pairplot(dataset)
-    #plt.show()
     print(dataset.info())
     X = dataset.drop(columns=['type'])
     Y = dataset['type']
@@ -90,23 +83,61 @@ def modelo1_regressao(dataset):
     print(scores)
     print("Result: %0.2f accuracy with std_dev of %0.2f" % (scores.mean(),scores.std()))
     
-def modelo_2_trees(dataset):
-    # converter tipos de dados para string
-    # dataset['number_of_seasons'] = dataset['number_of_seasons'].astype(str)
-    # dataset['number_of_episodes'] = dataset['number_of_episodes'].astype(str)
-    # dataset['in_production'] = dataset['in_production'].astype(str)
-    # dataset['status'] = dataset['status'].astype(str)
+def modelo2_RandomTree(dataset):
+    no_folds = 300
+    parameter = 'number_of_seasons'
+    excel_PATH = 'resultados/resultados_tree.xlsx'
+    # <<<<< MODELO
     dataset = dataset.drop(columns=['name','original_language','original_name','created_by','last_air_date','first_air_date'])
     dataset.info()
-    X = dataset.drop(columns=['number_of_seasons'])
-    Y = dataset['number_of_seasons']
+    X = dataset.drop(columns=[parameter])
+    Y = dataset[parameter]
     clf = DecisionTreeClassifier(random_state=2023)
-    scores = cross_val_score(clf,X,Y,cv=1000)
+    scores = cross_val_score(clf,X,Y,cv=no_folds)
+    # >>>>> MODELO
     print(scores)
-    print("Result: %0.2f accuracy with std_dev of %0.2f" % (scores.mean(),scores.std())) 
-    
-    
+    print("Result: %0.2f accuracy with std_dev of %0.2f" % (scores.mean(),scores.std()))
+    result = {
+        '#Folds': [no_folds],
+        'Parâmetro': [parameter],
+        'Precisão': [scores.mean()],
+        'Desvio Padrão': [scores.std()]
+    }   
+    save_result(result, excel_PATH)
 
+def modelo3_RandomForest(dataset):
+    no_folds = 250
+    estimators = 1000
+    parameter = 'number_of_seasons'
+    excel_PATH = 'resultados/resultados_forest.xlsx'
+    parameter = 'number_of_seasons'
+    # <<<<< MODELO
+    dataset = dataset.drop(columns=['name','original_language','original_name','created_by','last_air_date','first_air_date'])
+    X = dataset.drop(columns=[parameter])
+    Y = dataset[parameter]
+    clf = RandomForestClassifier(n_estimators=estimators)
+    scores = cross_val_score(clf, X, Y, cv=no_folds)
+    # >>>>>> MODELO
+    print(scores)
+    print("Result: %0.2f accuracy with std_dev of %0.2f" % (scores.mean(),scores.std()))
+    pd.Series(scores).hist()
+    result = {
+        '#Folds': [no_folds],
+        'Parâmetro': [parameter],
+        '#Árvores': [estimators],
+        'Precisão': [scores.mean()],
+        'Desvio Padrão': [scores.std()]
+    }   
+    save_result(result, excel_PATH)
+
+def save_result(result, file_path):
+    if not os.path.exists(file_path):
+        df = pd.DataFrame(result)
+        df.to_excel(file_path,index=False,engine='openpyxl')
+    else:
+        history = pd.read_excel(file_path, engine='openpyxl')
+        results = pd.concat([history,pd.DataFrame(result)],axis=0, ignore_index=True)
+        results.to_excel(file_path, index=False, engine='openpyxl')  
 
 # START
 if __name__ == "__main__":
@@ -114,9 +145,7 @@ if __name__ == "__main__":
         print("Reading Data...")
         data = pd.read_csv(DATAFILE_PATH)
         filter(data)
-        # analysis(data)
-        modelo_2_trees(data)
+        modelo3_RandomForest(data)
     else:
         print(f"Error: File '{DATAFILE_PATH}' does not exist.")
-    
     
