@@ -1,4 +1,5 @@
 # conda install openpyxl
+from scipy import stats
 import sklearn as skl
 import os
 import numpy as np
@@ -10,14 +11,14 @@ from datetime import date
 import category_encoders as ce ## Necessário installar category_encoders in conda
 
 from sklearn import preprocessing
-from sklearn.preprocessing import LabelEncoder
+from sklearn.preprocessing import LabelEncoder, MinMaxScaler
 
 
 from sklearn.linear_model import LinearRegression
 from sklearn.model_selection import train_test_split, cross_val_score
 
 
-from sklearn.metrics import mean_squared_error, r2_score
+from sklearn.metrics import make_scorer, mean_squared_error, r2_score
 from sklearn.tree import DecisionTreeClassifier, export_graphviz #Decision tree 
 from sklearn.ensemble import RandomForestClassifier
 
@@ -52,17 +53,17 @@ def filter(dataset):
     data['origin_country'] = lb_make.fit_transform(data['origin_country'])
     data['languages'] = lb_make.fit_transform(data['languages'])
     data['networks'] = lb_make.fit_transform(data['networks'])
-    # binary encoding da colunas
-    # encoder = ce.BinaryEncoder(cols =['spoken_languages', 'genres','origin_country','languages','networks'])
-    # dataset=encoder.fit_transform(dataset)
-    #####
-    #sns.catplot(x="number_of_seasons", y="status", data=dataset, kind="box", aspect=1.5) 
-    #plt.show()
-    #####
-
-    #print(dataset['number_of_seasons'].describe())
-    #plt.hist(dataset['number_of_seasons'], bins=14, edgecolor='k')
-    #plt.show()
+    # outliers
+    # esta tecnica de remover outliers retira alguns valores do dataset que têm um desvio de
+    # 3*(desvio padrao) ou mais. As rows baixaram de 23074 para 21675.
+    dataset.info()
+    print("AFTER")
+    numeric_columns = dataset.select_dtypes(include=['number'])
+    z_scores = np.abs(stats.zscore(numeric_columns))
+    outlier_rows = (z_scores > 3).any(axis=1)
+    dataset_no_outliers = dataset[~outlier_rows]
+    dataset_no_outliers.info()
+    return dataset_no_outliers
     
 # correlação, heat map, historgramas, estatísticas, etc... """
 def analysis(dataset):
@@ -73,15 +74,36 @@ def analysis(dataset):
     #
     #encoder = ce.BinaryEnconder(cols =[''])
 
+def int_scorer(trueVAL,predVAL):
+    roundedVAL = np.round(predVAL).astype(int)
+    mse = mean_squared_error(trueVAL, roundedVAL)
+    return mse
+
 def modelo1_LinearReg(dataset):
+    parameter = 'number_of_seasons'
+    no_folds = 100
+    excel_PATH = 'resultados/resultados_linearReg.xlsx'
+    dataset.describe()
+    # >>>> MODELO
     dataset = dataset.select_dtypes(include=['number'])
-    print(dataset.info())
-    X = dataset.drop(columns=['type'])
-    Y = dataset['type']
+    # custom_scorer = make_scorer(int_scorer, greater_is_better=False)
+    X = dataset.drop(columns=[parameter])
+    Y = dataset[parameter]
+    normalizer = MinMaxScaler()
+    X_scaled = normalizer.fit_transform(X)
+    Y_scaled = normalizer.fit_transform(Y.values.reshape(-1, 1))
     lm = LinearRegression()
-    scores = cross_val_score(lm,X,Y,cv=10)
+    scores = cross_val_score(lm,X_scaled,Y_scaled,cv=no_folds)
+    # <<<< MODELO
     print(scores)
-    print("Result: %0.2f accuracy with std_dev of %0.2f" % (scores.mean(),scores.std()))
+    print("Result: %0.2f accuracy with std_dev of %0.2f" % (np.mean(scores),np.std(scores)))
+    result = {
+        '#Folds': [no_folds],
+        'Parâmetro': [parameter],
+        'Precisão': [scores.mean()],
+        'Desvio Padrão': [scores.std()]
+    }   
+    save_result(result, excel_PATH)
     
 def modelo2_RandomTree(dataset):
     no_folds = 300
@@ -107,12 +129,13 @@ def modelo2_RandomTree(dataset):
 
 def modelo3_RandomForest(dataset):
     no_folds = 250
-    estimators = 1000
+    estimators = 10
+    dataset = dataset.select_dtypes(include=['number'])
     parameter = 'number_of_seasons'
     excel_PATH = 'resultados/resultados_forest.xlsx'
     parameter = 'number_of_seasons'
     # <<<<< MODELO
-    dataset = dataset.drop(columns=['name','original_language','original_name','created_by','last_air_date','first_air_date'])
+    # dataset = dataset.drop(columns=['name','original_language','original_name','created_by','last_air_date','first_air_date'])
     X = dataset.drop(columns=[parameter])
     Y = dataset[parameter]
     clf = RandomForestClassifier(n_estimators=estimators)
@@ -144,7 +167,9 @@ if __name__ == "__main__":
     if os.path.exists(DATAFILE_PATH):
         print("Reading Data...")
         data = pd.read_csv(DATAFILE_PATH)
-        filter(data)
+        data = filter(data)
+        print("\n\n\nAFTER FILTERING...\n\n\n")
+        modelo1_LinearReg(data)
         modelo3_RandomForest(data)
     else:
         print(f"Error: File '{DATAFILE_PATH}' does not exist.")
