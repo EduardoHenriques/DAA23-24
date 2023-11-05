@@ -18,7 +18,7 @@ from sklearn.linear_model import LinearRegression
 from sklearn.model_selection import train_test_split, cross_val_score
 
 
-from sklearn.metrics import make_scorer, mean_squared_error, r2_score
+from sklearn.metrics import make_scorer, mean_absolute_error, mean_squared_error, r2_score
 from sklearn.tree import DecisionTreeClassifier, export_graphviz #Decision tree 
 from sklearn.ensemble import RandomForestClassifier
 
@@ -80,13 +80,26 @@ def int_scorer(trueVAL,predVAL):
     return mse
 
 def modelo1_LinearReg(dataset):
+    lb_make = LabelEncoder()
+    dataset['status'] = lb_make.fit_transform(data['status'])
+    dataset['type'] = lb_make.fit_transform(data['type'])
+    dataset['spoken_languages'] = lb_make.fit_transform(data['spoken_languages'])
+    dataset['genres'] = lb_make.fit_transform(data['genres'])
+    dataset['origin_country'] = lb_make.fit_transform(data['origin_country'])
+    dataset['original_language'] = lb_make.fit_transform(data['original_language'])
+    dataset['languages'] = lb_make.fit_transform(data['languages'])
+    dataset['networks'] = lb_make.fit_transform(data['networks'])
+    dataset['in_production'] = dataset['in_production'].astype(int)
+    dataset.drop(columns=['name','original_name','created_by'],axis=1,inplace=True)
+    print("\n\n\nLINEAR REGRESSION\n\n\n")
+    dataset.info()
+    ###
     parameter = 'number_of_seasons'
     no_folds = 100
     excel_PATH = 'resultados/resultados_linearReg.xlsx'
-    dataset.describe()
-    # >>>> MODELO
+    dataset.info()
+    # >>>> MODEL
     dataset = dataset.select_dtypes(include=['number'])
-    # custom_scorer = make_scorer(int_scorer, greater_is_better=False)
     X = dataset.drop(columns=[parameter])
     Y = dataset[parameter]
     normalizer = MinMaxScaler()
@@ -94,29 +107,31 @@ def modelo1_LinearReg(dataset):
     Y_scaled = normalizer.fit_transform(Y.values.reshape(-1, 1))
     lm = LinearRegression()
     scores = cross_val_score(lm,X_scaled,Y_scaled,cv=no_folds)
-    # <<<< MODELO
+    # <<<< MODEL
     print(scores)
-    print("Result: %0.2f accuracy with std_dev of %0.2f" % (np.mean(scores),np.std(scores)))
+    MSE = mean_squared_error(scores, [0] * len(scores))
+    MSA = mean_absolute_error(scores, [0] * len(scores))
+    print("Result: %0.2f MSE with MSA of %0.2f" % (MSE,MSA))
     result = {
         '#Folds': [no_folds],
         'Parâmetro': [parameter],
-        'Precisão': [scores.mean()],
-        'Desvio Padrão': [scores.std()]
+        'Precisão': [MSE],
+        'Desvio Padrão': [MSA]
     }   
     save_result(result, excel_PATH)
     
-def modelo2_RandomTree(dataset):
+def modelo2_DecisionTree(dataset):
     no_folds = 300
     parameter = 'number_of_seasons'
     excel_PATH = 'resultados/resultados_tree.xlsx'
-    # <<<<< MODELO
+    # <<<<< MODEL
     dataset = dataset.drop(columns=['name','original_language','original_name','created_by','last_air_date','first_air_date'])
     dataset.info()
     X = dataset.drop(columns=[parameter])
     Y = dataset[parameter]
     clf = DecisionTreeClassifier(random_state=2023)
     scores = cross_val_score(clf,X,Y,cv=no_folds)
-    # >>>>> MODELO
+    # >>>>> MODEL
     print(scores)
     print("Result: %0.2f accuracy with std_dev of %0.2f" % (scores.mean(),scores.std()))
     result = {
@@ -128,19 +143,19 @@ def modelo2_RandomTree(dataset):
     save_result(result, excel_PATH)
 
 def modelo3_RandomForest(dataset):
-    no_folds = 250
-    estimators = 10
+    no_folds = 10
+    estimators = 500
     dataset = dataset.select_dtypes(include=['number'])
     parameter = 'number_of_seasons'
     excel_PATH = 'resultados/resultados_forest.xlsx'
     parameter = 'number_of_seasons'
-    # <<<<< MODELO
+    # <<<<< MODEL
     # dataset = dataset.drop(columns=['name','original_language','original_name','created_by','last_air_date','first_air_date'])
     X = dataset.drop(columns=[parameter])
     Y = dataset[parameter]
     clf = RandomForestClassifier(n_estimators=estimators)
     scores = cross_val_score(clf, X, Y, cv=no_folds)
-    # >>>>>> MODELO
+    # >>>>>> MODEL
     print(scores)
     print("Result: %0.2f accuracy with std_dev of %0.2f" % (scores.mean(),scores.std()))
     pd.Series(scores).hist()
@@ -161,6 +176,7 @@ def save_result(result, file_path):
         history = pd.read_excel(file_path, engine='openpyxl')
         results = pd.concat([history,pd.DataFrame(result)],axis=0, ignore_index=True)
         results.to_excel(file_path, index=False, engine='openpyxl')  
+    print(f"Model result saved in:{file_path}")
 
 # START
 if __name__ == "__main__":
@@ -170,7 +186,7 @@ if __name__ == "__main__":
         data = filter(data)
         print("\n\n\nAFTER FILTERING...\n\n\n")
         modelo1_LinearReg(data)
-        modelo3_RandomForest(data)
+        # modelo3_RandomForest(data)
     else:
         print(f"Error: File '{DATAFILE_PATH}' does not exist.")
     
