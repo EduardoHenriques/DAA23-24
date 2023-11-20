@@ -28,6 +28,8 @@ DATAFILE_PATH = "dataset/movies.csv"
 
 # remove useless columns, and apply data processing
 def filter(dataset):
+    print("###############BEFORE DROP###################")
+    print(dataset.info())
     dataset.drop(columns=['id','tagline','backdrop_path','homepage','overview','production_companies','production_countries','poster_path'],axis=1,inplace=True)
     dataset.dropna(subset=['first_air_date',
                           'last_air_date',
@@ -35,6 +37,8 @@ def filter(dataset):
                           'languages','networks','origin_country',
                           'spoken_languages'],inplace=True)
     dataset = dataset[(dataset['number_of_seasons']>0) & (dataset['number_of_seasons'] < 7)]
+    print("###############AFTER DROP###################")
+    print(dataset.info())
     # turn first_air_date and last_air_date into days_aired
     dataset['first_air_date'] = pd.to_datetime(dataset['first_air_date'], format = '%Y-%m-%d', errors='coerce')
     dataset['last_air_date'] = pd.to_datetime(dataset['last_air_date'], format = '%Y-%m-%d', errors='coerce')
@@ -47,6 +51,8 @@ def filter(dataset):
     # label encoding to a few attributes
     lb_make = LabelEncoder()
     data['status'] = lb_make.fit_transform(data['status'])
+    print("############### STATUS ###################")
+    print(data['status'])
     data['type'] = lb_make.fit_transform(data['type'])
     data['spoken_languages'] = lb_make.fit_transform(data['spoken_languages'])
     data['genres'] = lb_make.fit_transform(data['genres'])
@@ -56,12 +62,12 @@ def filter(dataset):
     # remove outliers
     # not sure about how good this technique is, but ~3000 rows were removed.
     # Z-score(number of sdt deviations from the mean) must be >3 to remove a row.
-    dataset.info()
+    data.info()
     print("AFTER")
-    numeric_columns = dataset.select_dtypes(include=['number'])
+    numeric_columns = data.select_dtypes(include=['number'])
     z_scores = np.abs(stats.zscore(numeric_columns))
     outlier_rows = (z_scores > 3).any(axis=1)
-    dataset_no_outliers = dataset[~outlier_rows]
+    dataset_no_outliers = data[~outlier_rows]
     dataset_no_outliers.info()
     return dataset_no_outliers
     
@@ -176,7 +182,9 @@ def modelo3_RandomForest(dataset):
 
 def modelo4_MLP(dataset):
     excel_PATH = 'resultados/resultados_MLP.xlsx'
-    dataset = dataset = dataset.select_dtypes(include=['number'])
+    print("###############BEFORE SELECT NUMB###################")
+    print(dataset.info())
+    dataset = dataset.select_dtypes(include=['number'])
     parameter = 'number_of_seasons'
     print("PERCEPTRON MODEL SETUP")
     my_model = build_model()
@@ -185,16 +193,20 @@ def modelo4_MLP(dataset):
     param_grid = dict(optimizer=optimizer)
     kf = KFold(n_splits=5, shuffle=True,random_state=2021)
     model = KerasRegressor(model = my_model, batch_size=32, validation_split=0.2, epochs=20)
+    #my_model.summary()
     # split data
     y = dataset[parameter]
     X = dataset.drop(columns=parameter)
+    print("###############AFTER SELECT NUMB###################")
+    print(X.info())
+    X.fillna(0, inplace=True)
     X_train, X_test, y_train, y_test = train_test_split(X,y,test_size=0.2,random_state=101)
-    grid_search = GridSearchCV(estimator=model, param_grid =param_grid, cv = kf, scoring='neg_mean_absolute_error', refit='True', verbose=10)
-    grid_search.fit(X_train,y_train)
-    print("Best %f  using %s is:"  % (grid_search.best_score_,grid_search.best_params_))
-    means = grid_search.cv_results_['mean_test_score']
-    stds = grid_search.cv_results_['std_test_score']
-    params = grid_search.cv_results_['params']
+    #grid_search = GridSearchCV(estimator=model, param_grid =param_grid, cv = kf, scoring='neg_mean_absolute_error', refit='True', verbose=10)
+    model.fit(X_train,y_train)
+    #print("Best %f  using %s is:"  % (grid_search.best_score_,grid_search.best_params_))
+    means = model.cv_results_['mean_test_score']
+    stds = model.cv_results_['std_test_score']
+    params = model.cv_results_['params']
     
 def save_result(result, file_path):
     if not os.path.exists(file_path):
@@ -224,11 +236,13 @@ if __name__ == "__main__":
         print("Reading Data...")
         data = pd.read_csv(DATAFILE_PATH)
         data = filter(data)
+        print("###############AFTER FILTER##########################")
+        print(data.info())
         analysis(data)
         print("\n\n\nAFTER FILTERING...\n\n\n")
         #modelo1_LinearReg(data)
-        #modelo4_MLP(data)
-        # modelo3_RandomForest(data)
+        modelo4_MLP(data)
+        #modelo3_RandomForest(data)
     else:
         print(f"Error: File '{DATAFILE_PATH}' does not exist.")
     
