@@ -18,8 +18,8 @@ from sklearn.tree import DecisionTreeClassifier, export_graphviz #Decision tree
 from sklearn.ensemble import RandomForestClassifier # Random Forest
 import tensorflow as tf                               # |
 from tensorflow import keras                          # |
-from tensorflow.keras.models import Sequential
-from tensorflow.keras.layers import Dense
+from tensorflow.keras.models import Sequential        # |  
+from tensorflow.keras.layers import Dense             # |
 from scikeras.wrappers import KerasRegressor          # |  
 #Metrics Imports
 from sklearn.metrics import make_scorer, mean_absolute_error, mean_squared_error, r2_score
@@ -85,7 +85,7 @@ def analysis(dataset):
     plt.show()
     #
     fig = plt.figure(figsize=(10, 10))
-    sns.stripplot(x='number_of_seasons', y='days_aired', data=dataset, jitter=True, alpha=0.7)
+    sns.stripplot(x='number_of_seasons', y='days_aired', data=dataset.sort_values(by='number_of_seasons'), jitter=True, alpha=0.7)
     plt.xlabel('Nº Seasons')
     plt.ylabel('Days Aired')
     plt.savefig('seasons_vs_days.png')
@@ -136,7 +136,7 @@ def modelo1_LinearReg(dataset):
     dataset.info()
     ###
     parameter = 'number_of_seasons'
-    no_folds = 100
+    no_folds = 50
     excel_PATH = 'resultados/resultados_linearReg.xlsx'
     dataset.info()
     # >>>> MODEL
@@ -271,8 +271,8 @@ if __name__ == "__main__":
         print("Reading Data...")
         data = pd.read_csv(DATAFILE_PATH)
         data = filter(data)
-        analysis(data)
-        #modelo1_LinearReg(data)
+        #analysis(data)
+        modelo1_LinearReg(data)
         #modelo4_MLP(data)
         #modelo2_DecisionTree(data)
         #modelo3_RandomForest(data)
