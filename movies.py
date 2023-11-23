@@ -136,7 +136,7 @@ def modelo1_LinearReg(dataset):
     dataset.info()
     ###
     parameter = 'number_of_seasons'
-    no_folds = 50
+    no_folds = 10
     excel_PATH = 'resultados/resultados_linearReg.xlsx'
     dataset.info()
     # >>>> MODEL
@@ -164,12 +164,14 @@ def modelo2_DecisionTree(dataset):
     no_folds = 10
     parameter = 'number_of_seasons'
     excel_PATH = 'resultados/resultados_tree.xlsx'
+    
     # <<<<< MODEL
     X = dataset.drop(columns=[parameter])
     Y = dataset[parameter]
     clf = DecisionTreeClassifier(random_state=2023)
     scores = cross_val_score(clf,X,Y,cv=no_folds)
     # >>>>> MODEL
+    
     print(scores)
     print("Result: %0.2f accuracy with std_dev of %0.2f" % (scores.mean(),scores.std()))
     result = {
@@ -185,6 +187,7 @@ def modelo3_RandomForest(dataset):
     estimators = 100
     parameter = 'number_of_seasons'
     excel_PATH = 'resultados/resultados_forest.xlsx'
+    
     # <<<<< MODEL
     # dataset = dataset.drop(columns=['name','original_language','original_name','created_by','last_air_date','first_air_date'])
     X = dataset.drop(columns=[parameter])
@@ -192,6 +195,7 @@ def modelo3_RandomForest(dataset):
     clf = RandomForestClassifier(n_estimators=estimators)
     scores = cross_val_score(clf, X, Y, cv=no_folds)
     # >>>>>> MODEL
+    
     print(scores)
     print("Result: %0.2f accuracy with std_dev of %0.2f" % (scores.mean(),scores.std()))
     pd.Series(scores).hist()
@@ -206,11 +210,11 @@ def modelo3_RandomForest(dataset):
 
 def modelo4_MLP(dataset):
     excel_PATH = 'resultados/resultados_MLP.xlsx'
-    print("###############BEFORE SELECT NUMB###################")
-    print(dataset.info())
     parameter = 'number_of_seasons'
     activation = 'relu'
     rate = 0.01
+    
+    # <<<<< MODEL
     print("PERCEPTRON MODEL SETUP")
     my_model = build_model(activation,rate)
     # hyperparameter tuning
@@ -220,14 +224,14 @@ def modelo4_MLP(dataset):
     model = KerasRegressor(model = my_model, batch_size=32, validation_split=0.2, epochs=20)
     y = dataset[parameter]
     x = dataset.drop(columns=parameter)
-    
     normalizer = MinMaxScaler()
     X_scaled = normalizer.fit_transform(x)
     Y_scaled = normalizer.fit_transform(y.values.reshape(-1, 1))
-    
     X_train, X_test, y_train, y_test = train_test_split(X_scaled,Y_scaled,test_size=0.2,random_state=101)
     model.fit(X_train,y_train)
     predictions = model.predict(X_test)
+    # >>>>>> MODEL
+    
     print(f"MAE: {metrics.mean_absolute_error(y_test, predictions)}\n MSE: {metrics.mean_squared_error(y_test, predictions)}")
     result = {
         'Parâmetro': [parameter],
