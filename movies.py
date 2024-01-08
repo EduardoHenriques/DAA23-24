@@ -136,7 +136,7 @@ def modelo1_LinearReg(dataset):
     dataset.info()
     ###
     parameter = 'number_of_seasons'
-    no_folds = 10
+    no_folds = 125
     excel_PATH = 'resultados/resultados_linearReg.xlsx'
     dataset.info()
     # >>>> MODEL
@@ -150,25 +150,26 @@ def modelo1_LinearReg(dataset):
     # <<<< MODEL
     print(scores)
     MSE = mean_squared_error(scores, [0] * len(scores))
-    MSA = mean_absolute_error(scores, [0] * len(scores))
-    print("Result: %0.2f MSE with MSA of %0.2f" % (MSE,MSA))
+    MAE = mean_absolute_error(scores, [0] * len(scores))
+    print("Result: %0.2f MSE with MAE of %0.2f" % (MSE,MAE))
     result = {
         '#Folds': [no_folds],
         'Parâmetro': [parameter],
         'MSE': [MSE],
-        'MAE': [MSA]
+        'MAE': [MAE]
     }   
     save_result(result, excel_PATH)
     
 def modelo2_DecisionTree(dataset):
-    no_folds = 10
+    no_folds = 50
     parameter = 'number_of_seasons'
     excel_PATH = 'resultados/resultados_tree.xlsx'
+    
     
     # <<<<< MODEL
     X = dataset.drop(columns=[parameter])
     Y = dataset[parameter]
-    clf = DecisionTreeClassifier(random_state=2023)
+    clf = DecisionTreeClassifier(random_state=2023,criterion='gini',max_depth=10,min_samples_leaf=2,min_samples_split=10,splitter='best')
     scores = cross_val_score(clf,X,Y,cv=no_folds)
     # >>>>> MODEL
     
@@ -181,18 +182,19 @@ def modelo2_DecisionTree(dataset):
         'Desvio Padrão': [scores.std()]
     }   
     save_result(result, excel_PATH)
+    #griddy(X,Y)
 
 def modelo3_RandomForest(dataset):
-    no_folds = 10
+    no_folds = 50
     estimators = 100
     parameter = 'number_of_seasons'
     excel_PATH = 'resultados/resultados_forest.xlsx'
-    
+    # {'criterion': 'gini', 'max_depth': 30, 'min_samples_leaf': 1, 'min_samples_split': 5, 'n_estimators': 200}
     # <<<<< MODEL
     # dataset = dataset.drop(columns=['name','original_language','original_name','created_by','last_air_date','first_air_date'])
     X = dataset.drop(columns=[parameter])
     Y = dataset[parameter]
-    clf = RandomForestClassifier(n_estimators=estimators)
+    clf = RandomForestClassifier(n_estimators=estimators, criterion='gini', max_depth=30, min_samples_leaf=1, min_samples_split=5)
     scores = cross_val_score(clf, X, Y, cv=no_folds)
     # >>>>>> MODEL
     
@@ -267,6 +269,30 @@ def build_model(activation, learning_rate):
         metrics = ['mae','mse']
     )
     return model
+
+
+
+def griddy(x,y):
+    print("ENTRERING GRID SEARCH")
+    param_grid = {
+        'criterion': ["gini", "entropy"],
+        'splitter': ["best", "random"],
+        'max_depth': [None, 10, 20, 30],
+        'min_samples_split': [2, 5, 10],
+        'min_samples_leaf': [1, 2, 4]
+    }
+    # Assuming your model is named 'model'
+    #print("Feature names during training:", energia_total.get_params()['features'])
+    #print("Feature names at prediction time:", energia23.columns.tolist())
+    
+    x_train, x_test, y_train, y_test = train_test_split(x, y, test_size=0.2, random_state=101)
+    grid = GridSearchCV(DecisionTreeClassifier(random_state=213123), param_grid, refit=True, verbose=3)
+    grid.fit(x_train,y_train)
+    print(grid.best_params_)
+
+
+    
+
 
 # START
 if __name__ == "__main__":
