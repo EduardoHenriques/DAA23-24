@@ -1,4 +1,5 @@
 # must install openpyxl in conda envoirnment to write the resulsts to an excel file
+import sys
 from menu import run_menu
 from scipy import stats
 import sklearn as skl
@@ -19,15 +20,13 @@ from sklearn.linear_model import LinearRegression, Ridge   # Linear Regression
 from sklearn.tree import DecisionTreeClassifier, export_graphviz #Decision tree 
 from sklearn.feature_selection import SelectKBest, f_regression
 from sklearn.ensemble import RandomForestClassifier # Random Forest
-import tensorflow as tf                               # |
-from tensorflow import keras                          # |
-from tensorflow.keras.models import Sequential        # |  
-from tensorflow.keras.layers import Dense             # |
-from scikeras.wrappers import KerasRegressor          # |  
-from scikeras.wrappers import KerasClassifier         # |
-from keras.utils import to_categorical
+import tensorflow as tf                               
+from tensorflow import keras                          
+from tensorflow.keras.models import Sequential          
+from tensorflow.keras.layers import Dense             
+from scikeras.wrappers import KerasRegressor            
+from scikeras.wrappers import KerasClassifier         
 from keras.utils import np_utils
-#Metrics Imports
 from sklearn.metrics import make_scorer, mean_absolute_error, mean_squared_error, r2_score
 
 pd.set_option('mode.chained_assignment', None)
@@ -41,11 +40,6 @@ def filter(dataset):
     # DROP USELESS COLUMNS/INFO, REMOVE MISSING VALUES
     dataset.info()
     dataset.drop(columns=['id','name','created_by','original_name','tagline','backdrop_path','homepage','overview','production_companies','production_countries','poster_path'],axis=1,inplace=True)
-    #dataset.dropna(subset=['first_air_date',
-    #                      'last_air_date',
-    #                      'genres',
-    #                      'languages','networks','origin_country',
-    #                      'spoken_languages'],inplace=True)
     
     for col in ['first_air_date','last_air_date','genres','languages','networks','origin_country','spoken_languages']:
         dataset[col + '_missing'] = dataset[col].isnull().astype(int)
@@ -66,7 +60,6 @@ def filter(dataset):
                      'original_language']
     dataset[columns_to_encode] = dataset[columns_to_encode].apply(lambda col: lb_make.fit_transform(col))
     # REMOVE OUTLIERS
-    # not sure about how good this technique is, but ~3000 rows were removed.
     # Z-score(number of sdt deviations from the mean) must be >3 to remove a row.
     numeric_columns = dataset.select_dtypes(include=['number']).columns
     z_scores = np.abs(stats.zscore(dataset[numeric_columns]))
@@ -74,9 +67,7 @@ def filter(dataset):
     dataset_no_outliers = dataset[~outlier_rows]
     print('-'*60 + "\nFILTERED DATASET\n" + '-'*60)
     dataset_no_outliers.info() 
-    #dataset_no_outliers = dataset_no_outliers[(dataset_no_outliers['number_of_seasons']>0) & (dataset_no_outliers['number_of_seasons'] <= 7)]
     dataset_no_outliers['number_of_seasons'] = np.where(dataset_no_outliers['number_of_seasons'] >= 6, '6', dataset_no_outliers['number_of_seasons'])
-    #dataset_no_outliers['number_of_seasons'] = pd.to_numeric(dataset_no_outliers['number_of_seasons'], errors='coerce').astype('Int64')
     # REMOVE PILOT EPISODES
     dataset_no_outliers = dataset_no_outliers[dataset_no_outliers['days_aired'] > 0]
     # RESULTS
@@ -133,20 +124,18 @@ def analysis(dataset):
     plt.title('Scatter Plot: Episodes vs Days Aired')
     plt.savefig('episodes_vs_days.png')
     plt.show()
-    
+    return
 #
 # Linear Regression
 #
 def modelo1_LinearReg(dataset):
     lb_make = LabelEncoder()
-    print("\n\n\nLINEAR REGRESSION\n\n\n")
-    dataset.info()
-    ###
     parameter = 'number_of_seasons'
     no_folds = 125
     excel_PATH = 'resultados/resultados_linearReg.xlsx'
+    
+    print("\n\n\nLINEAR REGRESSION\n\n\n")
     dataset.info()
-    # >>>> MODEL
     X = dataset.drop(columns=[parameter])
     Y = dataset[parameter]
     normalizer = MinMaxScaler()
@@ -154,7 +143,6 @@ def modelo1_LinearReg(dataset):
     Y_scaled = normalizer.fit_transform(Y.values.reshape(-1, 1))
     lm = LinearRegression()
     scores = cross_val_score(lm,X_scaled,Y_scaled,cv=no_folds)
-    # <<<< MODEL
     print(scores)
     MSE = mean_squared_error(scores, [0] * len(scores))
     MAE = mean_absolute_error(scores, [0] * len(scores))
@@ -176,7 +164,7 @@ def modelo1_2_PolyReg(dataset):
 	no_folds = 80
 	degree = 3
 
-	print("POLYNOMIAL REGRESSION MODEL SETUP")
+	print("POLYNOMIAL REGRESSION")
 	X = dataset.drop(columns=[parameter])
 	Y = dataset[parameter]
 	normalizer = MinMaxScaler()
@@ -202,8 +190,6 @@ def modelo1_2_PolyReg(dataset):
 	save_result(result, excel_PATH)
 
 
-
-
 # 
 #  Decision Tree
 #   
@@ -212,6 +198,7 @@ def modelo2_DecisionTree(dataset):
     parameter = 'number_of_seasons'
     excel_PATH = 'resultados/resultados_tree.xlsx'
     
+    print("DECISION TREE")
     X = dataset.drop(columns=[parameter])
     Y = dataset[parameter]
     clf = DecisionTreeClassifier(random_state=2023,criterion='gini',max_depth=10,min_samples_leaf=2,min_samples_split=10,splitter='best')
@@ -237,7 +224,8 @@ def modelo3_RandomForest(dataset):
     estimators = 100
     parameter = 'number_of_seasons'
     excel_PATH = 'resultados/resultados_forest.xlsx'
-    # dataset = dataset.drop(columns=['name','original_language','original_name','created_by','last_air_date','first_air_date'])
+    
+    print("RANDOM FOREST")
     X = dataset.drop(columns=[parameter])
     Y = dataset[parameter]
     clf = RandomForestClassifier(n_estimators=estimators, criterion='gini', max_depth=30, min_samples_leaf=1, min_samples_split=5)
@@ -264,7 +252,7 @@ def modelo4_MLP(dataset):
     activation = 'relu'
     rate = 0.01
     
-    print("PERCEPTRON MODEL SETUP")
+    print("PERCEPTRON MODEL SETUP[REGRESSION]")
     my_model = build_model(activation,rate)
     # hyperparameter tuning
     optimizer = ['SGD','RMSprop','Adagrad']  
@@ -300,7 +288,7 @@ def modelo5_MLP_Classify(dataset):
     rate = 0.01
     num_classes = len(dataset[parameter].unique())  # Number of unique classes in the target variable
 
-    print("PERCEPTRON MODEL SETUP")
+    print("PERCEPTRON MODEL SETUP[CLASSIFICATION]")
     my_model = build_model_classification(activation, rate, num_classes)
     # hyperparameter tuning
     model = KerasClassifier(build_fn = my_model, batch_size=32, validation_split=0.2, epochs=20)
@@ -379,9 +367,6 @@ def griddy(x,y):
         'min_samples_split': [2, 5, 10],
         'min_samples_leaf': [1, 2, 4]
     }
-    # Assuming your model is named 'model'
-    #print("Feature names during training:", energia_total.get_params()['features'])
-    #print("Feature names at prediction time:", energia23.columns.tolist())
     
     x_train, x_test, y_train, y_test = train_test_split(x, y, test_size=0.2, random_state=101)
     grid = GridSearchCV(DecisionTreeClassifier(random_state=213123), param_grid, refit=True, verbose=3)
@@ -399,8 +384,8 @@ if __name__ == "__main__":
         print("Reading Data...")
         data = pd.read_csv(DATAFILE_PATH)
         data = filter(data)
-        run_menu(modelo1_LinearReg, modelo1_2_PolyReg, modelo2_DecisionTree, modelo3_RandomForest, modelo4_MLP, modelo5_MLP_Classify, data)
-        
+        run_menu(analysis,modelo1_LinearReg, modelo1_2_PolyReg, modelo2_DecisionTree, modelo3_RandomForest, modelo4_MLP, modelo5_MLP_Classify, data)
+        sys.exit(0)
     else:
         print(f"Error: File '{DATAFILE_PATH}' does not exist.")
     
