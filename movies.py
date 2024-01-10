@@ -1,4 +1,5 @@
 # must install openpyxl in conda envoirnment to write the resulsts to an excel file
+from menu import run_menu
 from scipy import stats
 import sklearn as skl
 import os, datetime, warnings
@@ -10,11 +11,13 @@ from datetime import date
 import category_encoders as ce  # Must install category_encoders in conda envoirnment
 from sklearn import preprocessing
 from sklearn import metrics
-from sklearn.preprocessing import LabelEncoder, MinMaxScaler
+from sklearn.feature_selection import f_regression
+from sklearn.pipeline import make_pipeline
+from sklearn.preprocessing import LabelEncoder, MinMaxScaler, PolynomialFeatures
 from sklearn.model_selection import GridSearchCV, KFold, train_test_split, cross_val_score
-# Model Imports
-from sklearn.linear_model import LinearRegression   # Linear Regression
+from sklearn.linear_model import LinearRegression, Ridge   # Linear Regression
 from sklearn.tree import DecisionTreeClassifier, export_graphviz #Decision tree 
+from sklearn.feature_selection import SelectKBest, f_regression
 from sklearn.ensemble import RandomForestClassifier # Random Forest
 import tensorflow as tf                               # |
 from tensorflow import keras                          # |
@@ -163,37 +166,42 @@ def modelo1_LinearReg(dataset):
         'MAE': [MAE]
     }   
     save_result(result, excel_PATH)
-    
+
 #
 # Polynomial Regression
 #
-#def modelo1_2_PolyReg(dataset, degree=2):
-#    excel_PATH = 'resultados/resultados_PolyReg.xlsx'
-#    parameter = 'number_of_seasons'
-#    
-#    # <<<<< MODEL
-#    print("POLYNOMIAL REGRESSION MODEL SETUP")
-#    y = dataset[parameter]
-#    x = dataset.drop(columns=parameter)
-#    normalizer = MinMaxScaler()
-#    X_scaled = normalizer.fit_transform(x)
-#    Y_scaled = normalizer.fit_transform(y.values.reshape(-1, 1))
-#    X_train, X_test, y_train, y_test = train_test_split(X_scaled,Y_scaled,test_size=0.2,random_state=101)
-#    
-#    # Create a Polynomial Regression model
-#    model = make_pipeline(PolynomialFeatures(degree), LinearRegression())
-#    model.fit(X_train, y_train)
-#    predictions = model.predict(X_test)
-#    # >>>>>> MODEL
-#    
-#    print(f"MAE: {metrics.mean_absolute_error(y_test, predictions)}\n MSE: {metrics.mean_squared_error(y_test, predictions)}")
-#    result = {
-#        'Parâmetro': [parameter],
-#        'Degree': [degree],
-#        'MSE': [round(metrics.mean_squared_error(y_test, predictions),2)],
-#        'MAE': [round(metrics.mean_absolute_error(y_test, predictions),2)]
-#    }
-#    save_result(result, excel_PATH)
+def modelo1_2_PolyReg(dataset):
+	excel_PATH = 'resultados/resultados_PolyReg.xlsx'
+	parameter = 'number_of_seasons'
+	no_folds = 80
+	degree = 3
+
+	print("POLYNOMIAL REGRESSION MODEL SETUP")
+	X = dataset.drop(columns=[parameter])
+	Y = dataset[parameter]
+	normalizer = MinMaxScaler()
+	X_scaled = normalizer.fit_transform(X)
+	Y_scaled = normalizer.fit_transform(Y.values.reshape(-1, 1))
+
+	pl = make_pipeline(PolynomialFeatures(degree), Ridge(alpha=0.25))
+	selector = SelectKBest(score_func=f_regression, k=14)
+	X_new = selector.fit_transform(X_scaled, Y_scaled.ravel())
+
+	scores = cross_val_score(pl, X_new, Y_scaled.ravel(), cv=no_folds)
+	print(scores)
+	MSE = mean_squared_error(scores, [0] * len(scores))
+	MAE = mean_absolute_error(scores, [0] * len(scores))
+	print("Result: %0.2f MSE with MAE of %0.2f" % (MSE, MAE))
+	result = {
+		'#Folds': [no_folds],
+		'Parâmetro': [parameter],
+		'Degree': [degree],
+		'MSE': [MSE],
+		'MAE': [MAE],
+	}
+	save_result(result, excel_PATH)
+
+
 
 
 # 
@@ -391,12 +399,8 @@ if __name__ == "__main__":
         print("Reading Data...")
         data = pd.read_csv(DATAFILE_PATH)
         data = filter(data)
-        #analysis(data)
-        #modelo1_LinearReg(data)
-        #modelo4_MLP(data)
-        #modelo2_DecisionTree(data)
-        #modelo3_RandomForest(data)
-        modelo5_MLP_Classify(data)
+        run_menu(modelo1_LinearReg, modelo1_2_PolyReg, modelo2_DecisionTree, modelo3_RandomForest, modelo4_MLP, modelo5_MLP_Classify, data)
+        
     else:
         print(f"Error: File '{DATAFILE_PATH}' does not exist.")
     
