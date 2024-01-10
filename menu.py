@@ -71,3 +71,4 @@ def run_menu(analysis, modelo1_LinearReg, modelo1_2_PolyReg, modelo2_DecisionTre
 
         root.mainloop()
     threading.Thread(target=run_gui).start()
+

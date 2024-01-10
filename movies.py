@@ -70,6 +70,7 @@ def filter(dataset):
     dataset_no_outliers['number_of_seasons'] = np.where(dataset_no_outliers['number_of_seasons'] >= 6, '6', dataset_no_outliers['number_of_seasons'])
     # REMOVE PILOT EPISODES
     dataset_no_outliers = dataset_no_outliers[dataset_no_outliers['days_aired'] > 0]
+    dataset_no_outliers = dataset_no_outliers[dataset_no_outliers['number_of_seasons'] != '0']
     # RESULTS
     dataset_no_outliers.info() 
     return dataset_no_outliers
@@ -162,7 +163,7 @@ def modelo1_2_PolyReg(dataset):
 	excel_PATH = 'resultados/resultados_PolyReg.xlsx'
 	parameter = 'number_of_seasons'
 	no_folds = 80
-	degree = 3
+	degree = 2
 
 	print("POLYNOMIAL REGRESSION")
 	X = dataset.drop(columns=[parameter])
@@ -284,7 +285,7 @@ def modelo4_MLP(dataset):
 def modelo5_MLP_Classify(dataset):
     excel_PATH = 'resultados/resultados_MLP_Classification.xlsx'
     parameter = 'number_of_seasons'
-    activation = 'relu'
+    activation = 'relu' # softmax is worse
     rate = 0.01
     num_classes = len(dataset[parameter].unique())  # Number of unique classes in the target variable
 
@@ -309,11 +310,13 @@ def modelo5_MLP_Classify(dataset):
     predictions = model.predict(X_test)
     
     print(f"Accuracy: {metrics.accuracy_score(y_test, predictions)}")
+    print(f"Deviation: {round(np.std(predictions),2)}")
     result = {
         'Parâmetro': [parameter],
         'Activation': [activation],
         'Rate': [rate],
-        'Accuracy': [round(metrics.accuracy_score(y_test, predictions),2)]
+        'Accuracy': [round(metrics.accuracy_score(y_test, predictions),2)],
+        'Standard Deviation': [round(np.std(predictions),2)]
     }
     save_result(result, excel_PATH)
     
@@ -343,7 +346,7 @@ def build_model(activation, learning_rate):
     )
     return model
 
-
+# builds a basic MLP model - classification
 def build_model_classification(activation, learning_rate, num_classes):
     model = Sequential() 
     model.add(Dense(32, input_dim = 23, activation = activation))
@@ -385,7 +388,7 @@ if __name__ == "__main__":
         data = pd.read_csv(DATAFILE_PATH)
         data = filter(data)
         run_menu(analysis,modelo1_LinearReg, modelo1_2_PolyReg, modelo2_DecisionTree, modelo3_RandomForest, modelo4_MLP, modelo5_MLP_Classify, data)
-        sys.exit(0)
+        os.__exit(0)
     else:
         print(f"Error: File '{DATAFILE_PATH}' does not exist.")
     
