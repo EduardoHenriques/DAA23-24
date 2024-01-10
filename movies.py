@@ -21,6 +21,9 @@ from tensorflow import keras                          # |
 from tensorflow.keras.models import Sequential        # |  
 from tensorflow.keras.layers import Dense             # |
 from scikeras.wrappers import KerasRegressor          # |  
+from scikeras.wrappers import KerasClassifier         # |
+from keras.utils import to_categorical
+from keras.utils import np_utils
 #Metrics Imports
 from sklearn.metrics import make_scorer, mean_absolute_error, mean_squared_error, r2_score
 
@@ -35,11 +38,14 @@ def filter(dataset):
     # DROP USELESS COLUMNS/INFO, REMOVE MISSING VALUES
     dataset.info()
     dataset.drop(columns=['id','name','created_by','original_name','tagline','backdrop_path','homepage','overview','production_companies','production_countries','poster_path'],axis=1,inplace=True)
-    dataset.dropna(subset=['first_air_date',
-                          'last_air_date',
-                          'genres',
-                          'languages','networks','origin_country',
-                          'spoken_languages'],inplace=True)
+    #dataset.dropna(subset=['first_air_date',
+    #                      'last_air_date',
+    #                      'genres',
+    #                      'languages','networks','origin_country',
+    #                      'spoken_languages'],inplace=True)
+    
+    for col in ['first_air_date','last_air_date','genres','languages','networks','origin_country','spoken_languages']:
+        dataset[col + '_missing'] = dataset[col].isnull().astype(int)
     # DAYS_AIRED ADDED, REMOVED DATES
     dataset['first_air_date'] = pd.to_datetime(dataset['first_air_date'], format = '%Y-%m-%d', errors='coerce')
     dataset['last_air_date'] = pd.to_datetime(dataset['last_air_date'], format = '%Y-%m-%d', errors='coerce')
@@ -125,11 +131,9 @@ def analysis(dataset):
     plt.savefig('episodes_vs_days.png')
     plt.show()
     
-def int_scorer(trueVAL,predVAL):
-    roundedVAL = np.round(predVAL).astype(int)
-    mse = mean_squared_error(trueVAL, roundedVAL)
-    return mse
-
+#
+# Linear Regression
+#
 def modelo1_LinearReg(dataset):
     lb_make = LabelEncoder()
     print("\n\n\nLINEAR REGRESSION\n\n\n")
@@ -160,18 +164,50 @@ def modelo1_LinearReg(dataset):
     }   
     save_result(result, excel_PATH)
     
+#
+# Polynomial Regression
+#
+#def modelo1_2_PolyReg(dataset, degree=2):
+#    excel_PATH = 'resultados/resultados_PolyReg.xlsx'
+#    parameter = 'number_of_seasons'
+#    
+#    # <<<<< MODEL
+#    print("POLYNOMIAL REGRESSION MODEL SETUP")
+#    y = dataset[parameter]
+#    x = dataset.drop(columns=parameter)
+#    normalizer = MinMaxScaler()
+#    X_scaled = normalizer.fit_transform(x)
+#    Y_scaled = normalizer.fit_transform(y.values.reshape(-1, 1))
+#    X_train, X_test, y_train, y_test = train_test_split(X_scaled,Y_scaled,test_size=0.2,random_state=101)
+#    
+#    # Create a Polynomial Regression model
+#    model = make_pipeline(PolynomialFeatures(degree), LinearRegression())
+#    model.fit(X_train, y_train)
+#    predictions = model.predict(X_test)
+#    # >>>>>> MODEL
+#    
+#    print(f"MAE: {metrics.mean_absolute_error(y_test, predictions)}\n MSE: {metrics.mean_squared_error(y_test, predictions)}")
+#    result = {
+#        'Parâmetro': [parameter],
+#        'Degree': [degree],
+#        'MSE': [round(metrics.mean_squared_error(y_test, predictions),2)],
+#        'MAE': [round(metrics.mean_absolute_error(y_test, predictions),2)]
+#    }
+#    save_result(result, excel_PATH)
+
+
+# 
+#  Decision Tree
+#   
 def modelo2_DecisionTree(dataset):
     no_folds = 50
     parameter = 'number_of_seasons'
     excel_PATH = 'resultados/resultados_tree.xlsx'
     
-    
-    # <<<<< MODEL
     X = dataset.drop(columns=[parameter])
     Y = dataset[parameter]
     clf = DecisionTreeClassifier(random_state=2023,criterion='gini',max_depth=10,min_samples_leaf=2,min_samples_split=10,splitter='best')
     scores = cross_val_score(clf,X,Y,cv=no_folds)
-    # >>>>> MODEL
     
     print(scores)
     print("Result: %0.2f accuracy with std_dev of %0.2f" % (scores.mean(),scores.std()))
@@ -184,19 +220,20 @@ def modelo2_DecisionTree(dataset):
     save_result(result, excel_PATH)
     #griddy(X,Y)
 
+
+#
+# Random Forest
+#
 def modelo3_RandomForest(dataset):
     no_folds = 50
     estimators = 100
     parameter = 'number_of_seasons'
     excel_PATH = 'resultados/resultados_forest.xlsx'
-    # {'criterion': 'gini', 'max_depth': 30, 'min_samples_leaf': 1, 'min_samples_split': 5, 'n_estimators': 200}
-    # <<<<< MODEL
     # dataset = dataset.drop(columns=['name','original_language','original_name','created_by','last_air_date','first_air_date'])
     X = dataset.drop(columns=[parameter])
     Y = dataset[parameter]
     clf = RandomForestClassifier(n_estimators=estimators, criterion='gini', max_depth=30, min_samples_leaf=1, min_samples_split=5)
     scores = cross_val_score(clf, X, Y, cv=no_folds)
-    # >>>>>> MODEL
     
     print(scores)
     print("Result: %0.2f accuracy with std_dev of %0.2f" % (scores.mean(),scores.std()))
@@ -210,13 +247,15 @@ def modelo3_RandomForest(dataset):
     }   
     save_result(result, excel_PATH)
 
+#
+# MLP - Regression
+#
 def modelo4_MLP(dataset):
     excel_PATH = 'resultados/resultados_MLP.xlsx'
     parameter = 'number_of_seasons'
     activation = 'relu'
     rate = 0.01
     
-    # <<<<< MODEL
     print("PERCEPTRON MODEL SETUP")
     my_model = build_model(activation,rate)
     # hyperparameter tuning
@@ -232,7 +271,6 @@ def modelo4_MLP(dataset):
     X_train, X_test, y_train, y_test = train_test_split(X_scaled,Y_scaled,test_size=0.2,random_state=101)
     model.fit(X_train,y_train)
     predictions = model.predict(X_test)
-    # >>>>>> MODEL
     
     print(f"MAE: {metrics.mean_absolute_error(y_test, predictions)}\n MSE: {metrics.mean_squared_error(y_test, predictions)}")
     result = {
@@ -241,6 +279,45 @@ def modelo4_MLP(dataset):
         'Rate': [rate],
         'MSE': [round(metrics.mean_squared_error(y_test, predictions),2)],
         'MAE': [round(metrics.mean_absolute_error(y_test, predictions),2)]
+    }
+    save_result(result, excel_PATH)
+
+#
+# MLP - Classification
+#
+def modelo5_MLP_Classify(dataset):
+    excel_PATH = 'resultados/resultados_MLP_Classification.xlsx'
+    parameter = 'number_of_seasons'
+    activation = 'relu'
+    rate = 0.01
+    num_classes = len(dataset[parameter].unique())  # Number of unique classes in the target variable
+
+    print("PERCEPTRON MODEL SETUP")
+    my_model = build_model_classification(activation, rate, num_classes)
+    # hyperparameter tuning
+    model = KerasClassifier(build_fn = my_model, batch_size=32, validation_split=0.2, epochs=20)
+    y = dataset[parameter]
+    x = dataset.drop(columns=parameter)
+    normalizer = MinMaxScaler()
+    X_scaled = normalizer.fit_transform(x)
+
+    # Encode class values as integers
+    encoder = LabelEncoder()
+    encoder.fit(y)
+    encoded_Y = encoder.transform(y)
+    # Convert integers to dummy variables 
+    Y_scaled = np_utils.to_categorical(encoded_Y)
+
+    X_train, X_test, y_train, y_test = train_test_split(X_scaled,Y_scaled,test_size=0.2,random_state=101)
+    model.fit(X_train,y_train)
+    predictions = model.predict(X_test)
+    
+    print(f"Accuracy: {metrics.accuracy_score(y_test, predictions)}")
+    result = {
+        'Parâmetro': [parameter],
+        'Activation': [activation],
+        'Rate': [rate],
+        'Accuracy': [round(metrics.accuracy_score(y_test, predictions),2)]
     }
     save_result(result, excel_PATH)
     
@@ -258,7 +335,7 @@ def save_result(result, file_path):
 # builds a basic MLP model
 def build_model(activation, learning_rate):
     model = Sequential() 
-    model.add(Dense(32, input_dim = 16, activation = activation))
+    model.add(Dense(32, input_dim = 23, activation = activation))
     model.add(Dense(16, activation = activation))
     model.add(Dense(8, activation = activation))
     model.add(Dense(4, activation = activation))
@@ -270,6 +347,19 @@ def build_model(activation, learning_rate):
     )
     return model
 
+
+def build_model_classification(activation, learning_rate, num_classes):
+    model = Sequential() 
+    model.add(Dense(32, input_dim = 23, activation = activation))
+    model.add(Dense(16, activation = activation))
+    model.add(Dense(8, activation = activation))
+    model.add(Dense(num_classes, activation = 'softmax'))  
+
+    model.compile(loss='categorical_crossentropy',  
+                  optimizer=tf.optimizers.Adam(learning_rate=learning_rate),
+                  metrics=['accuracy'])
+
+    return model
 
 
 def griddy(x,y):
@@ -302,10 +392,11 @@ if __name__ == "__main__":
         data = pd.read_csv(DATAFILE_PATH)
         data = filter(data)
         #analysis(data)
-        modelo1_LinearReg(data)
+        #modelo1_LinearReg(data)
         #modelo4_MLP(data)
         #modelo2_DecisionTree(data)
         #modelo3_RandomForest(data)
+        modelo5_MLP_Classify(data)
     else:
         print(f"Error: File '{DATAFILE_PATH}' does not exist.")
     
